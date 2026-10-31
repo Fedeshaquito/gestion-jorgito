@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { exportarTodo, getConfig, importarTodo, setConfig } from '../lib/db'
 import { Campo, useToast } from '../components/ui'
+import { achicarImagen } from '../lib/imagen'
 import { crearCuenta, ingresar, salir, sincronizar, syncDisponible, useSync } from '../lib/sync'
 
 function Nube() {
@@ -72,28 +73,6 @@ function Nube() {
   )
 }
 
-// Achica el logo para que el PDF no pese de más
-function achicarImagen(archivo, max = 600) {
-  return new Promise((ok, mal) => {
-    const lector = new FileReader()
-    lector.onload = () => {
-      const img = new Image()
-      img.onload = () => {
-        const escala = Math.min(1, max / Math.max(img.width, img.height))
-        const c = document.createElement('canvas')
-        c.width = Math.round(img.width * escala)
-        c.height = Math.round(img.height * escala)
-        c.getContext('2d').drawImage(img, 0, 0, c.width, c.height)
-        ok(c.toDataURL('image/png'))
-      }
-      img.onerror = mal
-      img.src = lector.result
-    }
-    lector.onerror = mal
-    lector.readAsDataURL(archivo)
-  })
-}
-
 export default function Ajustes() {
   const [cfg, setCfg] = useState(null)
   const toast = useToast()
@@ -113,7 +92,7 @@ export default function Ajustes() {
   async function cambiarLogo(e) {
     const archivo = e.target.files?.[0]
     if (!archivo) return
-    const logo = await achicarImagen(archivo)
+    const logo = await achicarImagen(archivo, 600, 'image/png')
     await setConfig('logo', logo)
     setCfg({ ...cfg, logo })
     toast('Logo actualizado')

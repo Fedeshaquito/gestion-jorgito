@@ -3,8 +3,9 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { ajustarStock, aumentarPrecios, crearProducto, db, ingresarMercaderia } from '../lib/db'
 import { $, normalizar } from '../lib/format'
 import { Campo, Modal, Vacio, numero, useToast } from '../components/ui'
+import { achicarImagen } from '../lib/imagen'
 
-const VACIO = { nombre: '', codigo: '', categoria: '', costo: '', precio: '', stock: '', stockMinimo: '', unidadesPorBulto: '', precioBulto: '' }
+const VACIO = { nombre: '', codigo: '', categoria: '', costo: '', precio: '', stock: '', stockMinimo: '', unidadesPorBulto: '', precioBulto: '', foto: '' }
 
 function FormProducto({ producto, categorias, onCerrar }) {
   const [f, setF] = useState(producto ? { ...VACIO, ...producto } : VACIO)
@@ -23,6 +24,7 @@ function FormProducto({ producto, categorias, onCerrar }) {
       stockMinimo: numero(f.stockMinimo),
       unidadesPorBulto: numero(f.unidadesPorBulto) > 1 ? numero(f.unidadesPorBulto) : 0,
       precioBulto: numero(f.unidadesPorBulto) > 1 ? numero(f.precioBulto) : 0,
+      foto: f.foto || '',
       activo: true,
     }
     if (producto?.id) await db.productos.update(producto.id, datos)
@@ -39,7 +41,24 @@ function FormProducto({ producto, categorias, onCerrar }) {
 
   return (
     <Modal titulo={producto ? 'Editar producto' : 'Nuevo producto'} onCerrar={onCerrar}>
-      <Campo label="Nombre"><input value={f.nombre} onChange={set('nombre')} autoFocus /></Campo>
+      <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 12 }}>
+        <label className="foto-producto">
+          {f.foto ? <img src={f.foto} alt="" /> : <span>📷<br />Foto</span>}
+          <input
+            type="file"
+            accept="image/*"
+            style={{ display: 'none' }}
+            onChange={async (e) => {
+              const a = e.target.files?.[0]
+              if (a) setF({ ...f, foto: await achicarImagen(a) })
+            }}
+          />
+        </label>
+        <div style={{ flex: 1 }}>
+          <Campo label="Nombre"><input value={f.nombre} onChange={set('nombre')} autoFocus /></Campo>
+          {f.foto && <button className="boton chico" onClick={() => setF({ ...f, foto: '' })}>Quitar foto</button>}
+        </div>
+      </div>
       <div className="fila">
         <Campo label="Categoría">
           <input list="categorias" value={f.categoria} onChange={set('categoria')} placeholder="Ej: Golosinas" />
@@ -206,6 +225,56 @@ function FormImportar({ onCerrar }) {
   )
 }
 
+function FormCatalogo({ categorias, productos, onCerrar }) {
+  const [categoria, setCategoria] = useState('')
+  const [conPrecios, setConPrecios] = useState(true)
+  const [soloConStock, setSoloConStock] = useState(true)
+  const [ocupado, setOcupado] = useState(false)
+  const toast = useToast()
+  const elegidos = productos.filter(
+    (p) => p.activo !== false && (!categoria || p.categoria === categoria) && (!soloConStock || (p.stock ?? 0) > 0),
+  )
+
+  async function generar(compartir) {
+    if (!elegidos.length) return toast('No hay productos para mostrar')
+    setOcupado(true)
+    try {
+      const { compartirCatalogo, descargarCatalogo } = await import('../lib/catalogo')
+      const { getConfig } = await import('../lib/db')
+      const opciones = { productos: elegidos, categoria, conPrecios, config: await getConfig() }
+      if (compartir) {
+        const r = await compartirCatalogo(opciones)
+        if (r === 'descargado') toast('PDF descargado. Adjuntalo en WhatsApp.')
+      } else await descargarCatalogo(opciones)
+    } finally {
+      setOcupado(false)
+    }
+  }
+
+  return (
+    <Modal titulo="Catálogo para clientes" onCerrar={onCerrar}>
+      <p className="muted" style={{ marginTop: -8 }}>Arma un PDF con las fotos, nombres y precios actualizados, listo para mandar por WhatsApp.</p>
+      <Campo label="¿Qué productos?">
+        <select value={categoria} onChange={(e) => setCategoria(e.target.value)}>
+          <option value="">Todos</option>
+          {categorias.map((c) => <option key={c} value={c}>{c}</option>)}
+        </select>
+      </Campo>
+      <label className="muted" style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}>
+        <input type="checkbox" style={{ width: 'auto' }} checked={conPrecios} onChange={(e) => setConPrecios(e.target.checked)} /> Mostrar precios
+      </label>
+      <label className="muted" style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 12 }}>
+        <input type="checkbox" style={{ width: 'auto' }} checked={soloConStock} onChange={(e) => setSoloConStock(e.target.checked)} /> Solo productos con stock
+      </label>
+      <p className="muted">{elegidos.length} productos</p>
+      <div className="botones">
+        <button className="boton" disabled={ocupado} onClick={() => generar(false)}>⬇️ Descargar</button>
+        <button className="boton verde" disabled={ocupado} onClick={() => generar(true)}>📲 Enviar</button>
+      </div>
+    </Modal>
+  )
+}
+
 export default function Productos() {
   const productos = useLiveQuery(() => db.productos.orderBy('nombre').toArray(), [])
   const [busqueda, setBusqueda] = useState('')
@@ -214,6 +283,7 @@ export default function Productos() {
   const [stockDe, setStockDe] = useState(null)
   const [aumento, setAumento] = useState(false)
   const [importar, setImportar] = useState(false)
+  const [catalogo, setCatalogo] = useState(false)
 
   const categorias = useMemo(() => [...new Set((productos || []).map((p) => p.categoria).filter(Boolean))].sort(), [productos])
   const esBajo = (p) => (p.stock ?? 0) <= (p.stockMinimo || 0)
@@ -233,6 +303,7 @@ export default function Productos() {
         <button className="boton primario" onClick={() => setEditando('nuevo')}>+ Producto</button>
         <button className="boton" onClick={() => setAumento(true)}>📈 Subir precios</button>
         <button className="boton" onClick={() => setImportar(true)}>📋 Cargar lista</button>
+        <button className="boton" onClick={() => setCatalogo(true)}>📕 Catálogo</button>
       </div>
       <input className="buscador" placeholder="🔍 Buscar…" value={busqueda} onChange={(e) => setBusqueda(e.target.value)} />
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
@@ -249,6 +320,7 @@ export default function Productos() {
           <ul className="lista">
             {filtrados.map((p) => (
               <li key={p.id}>
+                {p.foto ? <img src={p.foto} alt="" className="miniatura" onClick={() => setEditando(p)} /> : <div className="miniatura vacia" onClick={() => setEditando(p)}>📦</div>}
                 <div className="principal-item clickeable" onClick={() => setEditando(p)}>
                   <div className="titulo">{p.nombre}</div>
                   <div className="sub">
@@ -270,6 +342,7 @@ export default function Productos() {
       {stockDe && <FormStock producto={stockDe} onCerrar={() => setStockDe(null)} />}
       {aumento && <FormAumento categorias={categorias} onCerrar={() => setAumento(false)} />}
       {importar && <FormImportar onCerrar={() => setImportar(false)} />}
+      {catalogo && <FormCatalogo categorias={categorias} productos={productos || []} onCerrar={() => setCatalogo(false)} />}
     </>
   )
 }
