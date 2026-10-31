@@ -42,7 +42,7 @@ export function SelectorCliente({ cliente, onCambiar }) {
       <div className="fila">
         <select
           value={cliente?.id ?? ''}
-          onChange={(e) => onCambiar(clientes.find((c) => c.id === Number(e.target.value)) || null)}
+          onChange={(e) => onCambiar(clientes.find((c) => c.id === e.target.value) || null)}
         >
           <option value="">Sin cliente (venta al paso)</option>
           {clientes.map((c) => (
@@ -69,18 +69,29 @@ export function EditorItems({ items, onCambiar }) {
   }, [busqueda, productos])
 
   function agregar(p) {
-    const existente = items.find((i) => i.productoId === p.id)
+    const existente = items.find((i) => i.productoId === p.id && (i.modo || 'unidad') === 'unidad')
     if (existente) {
-      onCambiar(items.map((i) => (i.productoId === p.id ? { ...i, cantidad: i.cantidad + 1 } : i)))
+      onCambiar(items.map((i) => (i === existente ? { ...i, cantidad: i.cantidad + 1 } : i)))
     } else {
-      onCambiar([...items, { productoId: p.id, nombre: p.nombre, cantidad: 1, precio: p.precio, costo: p.costo }])
+      onCambiar([...items, { productoId: p.id, nombre: p.nombre, cantidad: 1, precio: p.precio, costo: p.costo, modo: 'unidad', factor: 1 }])
     }
     setBusqueda('')
   }
 
+  function cambiarModo(idx, modo) {
+    const it = items[idx]
+    const p = productos.find((x) => x.id === it.productoId)
+    if (!p) return
+    const cambios =
+      modo === 'bulto'
+        ? { modo, factor: p.unidadesPorBulto, precio: p.precioBulto || p.precio * p.unidadesPorBulto }
+        : { modo, factor: 1, precio: p.precio }
+    onCambiar(items.map((x, n) => (n === idx ? { ...x, ...cambios } : x)))
+  }
+
   const cambiar = (idx, campo, valor) => onCambiar(items.map((i, n) => (n === idx ? { ...i, [campo]: valor } : i)))
   const quitar = (idx) => onCambiar(items.filter((_, n) => n !== idx))
-  const stockDe = (id) => productos.find((p) => p.id === id)?.stock
+  const productoDe = (id) => productos.find((p) => p.id === id)
 
   return (
     <div className="tarjeta">
@@ -98,7 +109,10 @@ export function EditorItems({ items, onCambiar }) {
             <li key={p.id} className="clickeable" onClick={() => agregar(p)}>
               <div className="principal-item">
                 <div className="titulo">{p.nombre}</div>
-                <div className="sub">Stock: {p.stock ?? 0}</div>
+                <div className="sub">
+                  Stock: {p.stock ?? 0}
+                  {p.unidadesPorBulto > 1 && ` · Bulto x${p.unidadesPorBulto}: ${$(p.precioBulto || p.precio * p.unidadesPorBulto)}`}
+                </div>
               </div>
               <div className="monto">{$(p.precio)}</div>
               <span className="chip azul">+ Agregar</span>
@@ -112,13 +126,20 @@ export function EditorItems({ items, onCambiar }) {
       ) : (
         <ul className="lista">
           {items.map((it, idx) => {
-            const stock = stockDe(it.productoId)
-            const falta = stock !== undefined && it.cantidad > stock
+            const prod = productoDe(it.productoId)
+            const stock = prod?.stock
+            const falta = stock !== undefined && it.cantidad * (it.factor || 1) > stock
             return (
               <li key={idx} style={{ display: 'block' }}>
                 <div className="titulo" style={{ marginBottom: 6 }}>
-                  {it.nombre} {falta && <span className="chip ambar">Hay {stock}</span>}
+                  {it.nombre} {falta && <span className="chip ambar">Hay {stock} unid.</span>}
                 </div>
+                {prod?.unidadesPorBulto > 1 && (
+                  <div className="selector-modo" style={{ marginBottom: 6 }}>
+                    <button className={it.modo !== 'bulto' ? 'activo' : ''} onClick={() => cambiarModo(idx, 'unidad')}>Unidad</button>
+                    <button className={it.modo === 'bulto' ? 'activo' : ''} onClick={() => cambiarModo(idx, 'bulto')}>Bulto x{prod.unidadesPorBulto}</button>
+                  </div>
+                )}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                     <span className="muted">$</span>

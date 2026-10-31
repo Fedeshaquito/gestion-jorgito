@@ -20,7 +20,7 @@ export default function EditarPresupuesto() {
   useEffect(() => {
     if (esNuevo) return
     ;(async () => {
-      const p = await db.presupuestos.get(Number(id))
+      const p = await db.presupuestos.get(id)
       if (!p) return navegar('/presupuestos')
       setPresupuesto(p)
       setItems(p.items.map((i) => ({ ...i })))

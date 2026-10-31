@@ -9,7 +9,7 @@ export const MEDIOS = { efectivo: 'Efectivo', transferencia: 'Transferencia', me
 
 export default function NuevaVenta() {
   const [params] = useSearchParams()
-  const presupuestoId = Number(params.get('presupuesto')) || null
+  const presupuestoId = params.get('presupuesto') || null
   const navegar = useNavigate()
   const toast = useToast()
   const [cliente, setCliente] = useState(null)

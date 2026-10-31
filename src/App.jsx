@@ -8,6 +8,8 @@ import Productos from './pages/Productos.jsx'
 import Clientes from './pages/Clientes.jsx'
 import Cliente from './pages/Cliente.jsx'
 import Ajustes from './pages/Ajustes.jsx'
+import { useSync } from './lib/sync'
+import logo from './assets/logo-mayorista-jt.png'
 
 const SECCIONES = [
   { to: '/', icono: '🏠', texto: 'Inicio' },
@@ -34,11 +36,29 @@ function titulo(path) {
   return ''
 }
 
+function EstadoSync() {
+  const s = useSync()
+  if (s.fase === 'no-configurado') return null
+  const info = {
+    'sin-sesion': ['☁️', 'Sin respaldo en la nube', 'gris'],
+    sincronizando: ['🔄', 'Sincronizando…', 'gris'],
+    ok: ['✅', 'Guardado en la nube', 'verde'],
+    'sin-conexion': ['📴', 'Sin internet: se guarda cuando vuelva', 'ambar'],
+    error: ['⚠️', 'No se pudo sincronizar', 'rojo'],
+  }[s.fase] || ['☁️', '', 'gris']
+  return (
+    <Link to="/ajustes" className={`estado-sync ${info[2]}`} title={info[1]} aria-label={info[1]}>
+      {info[0]}
+    </Link>
+  )
+}
+
 export default function App() {
   const { pathname } = useLocation()
   return (
     <div className="app">
       <nav className="menu">
+        <img src={logo} alt="Mayorista JT" className="logo-menu" />
         {SECCIONES.map((s) => (
           <NavLink key={s.to} to={s.to} end={s.to === '/'} className={({ isActive }) => (isActive ? 'activo' : '')}>
             <span>{s.icono}</span>
@@ -49,6 +69,7 @@ export default function App() {
       <div className="principal">
         <header className="cabecera">
           <h1>{titulo(pathname)}</h1>
+          <EstadoSync />
           <Link to="/ajustes" className="icono" aria-label="Ajustes">⚙️</Link>
         </header>
         <main className="contenido">

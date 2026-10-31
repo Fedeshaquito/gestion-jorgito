@@ -1,6 +1,76 @@
 import { useEffect, useState } from 'react'
 import { exportarTodo, getConfig, importarTodo, setConfig } from '../lib/db'
 import { Campo, useToast } from '../components/ui'
+import { crearCuenta, ingresar, salir, sincronizar, syncDisponible, useSync } from '../lib/sync'
+
+function Nube() {
+  const s = useSync()
+  const toast = useToast()
+  const [email, setEmail] = useState('')
+  const [clave, setClave] = useState('')
+  const [ocupado, setOcupado] = useState(false)
+  const [error, setError] = useState('')
+
+  if (!syncDisponible) {
+    return (
+      <div className="tarjeta">
+        <h2>☁️ Respaldo en la nube</h2>
+        <p className="muted" style={{ margin: 0 }}>Todavía no está activado.</p>
+      </div>
+    )
+  }
+
+  async function hacer(fn) {
+    setOcupado(true)
+    setError('')
+    try {
+      await fn()
+    } catch (e) {
+      setError(e.message)
+    } finally {
+      setOcupado(false)
+    }
+  }
+
+  if (!s.usuario) {
+    return (
+      <div className="tarjeta">
+        <h2>☁️ Respaldo en la nube</h2>
+        <p className="muted" style={{ marginTop: 0 }}>
+          Ingresá con tu cuenta para guardar todo en la nube y usar la app en el celular y en la compu con los mismos datos.
+        </p>
+        <Campo label="Mail"><input type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} /></Campo>
+        <Campo label="Contraseña"><input type="password" autoComplete="current-password" value={clave} onChange={(e) => setClave(e.target.value)} /></Campo>
+        {error && <div className="aviso">{error}</div>}
+        <div className="botones">
+          <button className="boton primario" disabled={ocupado} onClick={() => hacer(async () => { await ingresar(email.trim(), clave); toast('Sesión iniciada') })}>Ingresar</button>
+          <button className="boton" disabled={ocupado} onClick={() => hacer(async () => { await crearCuenta(email.trim(), clave); toast('Cuenta creada') })}>Crear cuenta</button>
+        </div>
+      </div>
+    )
+  }
+
+  const textos = {
+    sincronizando: 'Sincronizando…',
+    ok: 'Todo guardado en la nube ✅',
+    'sin-conexion': 'Sin internet. Los cambios se suben solos cuando vuelva la conexión.',
+    error: `No se pudo sincronizar: ${s.error}`,
+  }
+  return (
+    <div className="tarjeta">
+      <h2>☁️ Respaldo en la nube</h2>
+      <p style={{ marginTop: 0 }}>{textos[s.fase] || ''}</p>
+      <p className="muted">
+        Cuenta: {s.usuario.email}
+        {s.ultima && <> · Última vez: {new Date(s.ultima).toLocaleString('es-AR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</>}
+      </p>
+      <div className="botones">
+        <button className="boton" onClick={() => sincronizar()}>🔄 Sincronizar ahora</button>
+        <button className="boton peligro" onClick={() => confirm('¿Cerrar sesión en este dispositivo? Los datos quedan guardados.') && salir()}>Cerrar sesión</button>
+      </div>
+    </div>
+  )
+}
 
 // Achica el logo para que el PDF no pese de más
 function achicarImagen(archivo, max = 600) {
@@ -75,6 +145,7 @@ export default function Ajustes() {
 
   return (
     <>
+      <Nube />
       <div className="tarjeta">
         <h2>Datos del negocio (salen en los presupuestos)</h2>
         <Campo label="Nombre del negocio"><input value={cfg.negocioNombre || ''} onChange={set('negocioNombre')} /></Campo>
@@ -95,7 +166,7 @@ export default function Ajustes() {
       <div className="tarjeta">
         <h2>Copia de seguridad</h2>
         <p className="muted" style={{ marginTop: 0 }}>
-          Los datos se guardan en este dispositivo. Descargá una copia cada tanto y guardala en Drive o mandatela por WhatsApp.
+          Además de la nube, podés descargar una copia en un archivo y guardarla donde quieras.
           {cfg.ultimaCopia && <> Última copia: {new Date(cfg.ultimaCopia).toLocaleDateString('es-AR')}.</>}
         </p>
         <div className="botones">

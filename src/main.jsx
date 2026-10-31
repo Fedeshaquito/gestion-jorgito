@@ -4,6 +4,9 @@ import { HashRouter } from 'react-router-dom'
 import './index.css'
 import App from './App.jsx'
 import { ToastProvider } from './components/ui.jsx'
+import { iniciarSync } from './lib/sync'
+
+iniciarSync()
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>

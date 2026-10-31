@@ -8,7 +8,7 @@ import { FormCliente } from './Clientes'
 import { MEDIOS } from './NuevaVenta'
 
 export default function Cliente() {
-  const id = Number(useParams().id)
+  const { id } = useParams()
   const navegar = useNavigate()
   const toast = useToast()
   const cliente = useLiveQuery(() => db.clientes.get(id), [id])

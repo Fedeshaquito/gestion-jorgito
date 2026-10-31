@@ -1,10 +1,10 @@
 import { useMemo, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { ajustarStock, aumentarPrecios, db, ingresarMercaderia } from '../lib/db'
+import { ajustarStock, aumentarPrecios, crearProducto, db, ingresarMercaderia } from '../lib/db'
 import { $, normalizar } from '../lib/format'
 import { Campo, Modal, Vacio, numero, useToast } from '../components/ui'
 
-const VACIO = { nombre: '', codigo: '', categoria: '', costo: '', precio: '', stock: '', stockMinimo: '' }
+const VACIO = { nombre: '', codigo: '', categoria: '', costo: '', precio: '', stock: '', stockMinimo: '', unidadesPorBulto: '', precioBulto: '' }
 
 function FormProducto({ producto, categorias, onCerrar }) {
   const [f, setF] = useState(producto ? { ...VACIO, ...producto } : VACIO)
@@ -21,10 +21,12 @@ function FormProducto({ producto, categorias, onCerrar }) {
       costo: numero(f.costo),
       precio: numero(f.precio),
       stockMinimo: numero(f.stockMinimo),
+      unidadesPorBulto: numero(f.unidadesPorBulto) > 1 ? numero(f.unidadesPorBulto) : 0,
+      precioBulto: numero(f.unidadesPorBulto) > 1 ? numero(f.precioBulto) : 0,
       activo: true,
     }
     if (producto?.id) await db.productos.update(producto.id, datos)
-    else await db.productos.add({ ...datos, stock: numero(f.stock) })
+    else await crearProducto(datos, numero(f.stock))
     toast('Producto guardado')
     onCerrar()
   }
@@ -46,12 +48,24 @@ function FormProducto({ producto, categorias, onCerrar }) {
         <Campo label="Código (opcional)"><input value={f.codigo} onChange={set('codigo')} /></Campo>
       </div>
       <div className="fila">
-        <Campo label="Costo (lo que pagás)"><input inputMode="decimal" value={f.costo} onChange={set('costo')} /></Campo>
-        <Campo label="Precio de venta"><input inputMode="decimal" value={f.precio} onChange={set('precio')} /></Campo>
+        <Campo label="Costo por unidad"><input inputMode="decimal" value={f.costo} onChange={set('costo')} /></Campo>
+        <Campo label="Precio por unidad"><input inputMode="decimal" value={f.precio} onChange={set('precio')} /></Campo>
       </div>
       {margen !== null && <p className="muted" style={{ marginTop: -6 }}>Ganancia: {$(numero(f.precio) - numero(f.costo))} por unidad ({margen}%)</p>}
       <div className="fila">
-        {!producto && <Campo label="Stock actual"><input inputMode="numeric" value={f.stock} onChange={set('stock')} /></Campo>}
+        <Campo label="Unidades por bulto (opcional)"><input inputMode="numeric" value={f.unidadesPorBulto} onChange={set('unidadesPorBulto')} placeholder="Ej: 12" /></Campo>
+        <Campo label="Precio por bulto">
+          <input
+            inputMode="decimal"
+            value={f.precioBulto}
+            onChange={set('precioBulto')}
+            disabled={numero(f.unidadesPorBulto) <= 1}
+            placeholder={numero(f.unidadesPorBulto) > 1 ? String(numero(f.precio) * numero(f.unidadesPorBulto)) : ''}
+          />
+        </Campo>
+      </div>
+      <div className="fila">
+        {!producto && <Campo label="Stock actual (unidades)"><input inputMode="numeric" value={f.stock} onChange={set('stock')} /></Campo>}
         <Campo label="Avisar cuando queden menos de"><input inputMode="numeric" value={f.stockMinimo} onChange={set('stockMinimo')} /></Campo>
       </div>
       <div className="botones">
@@ -83,14 +97,14 @@ function FormStock({ producto, onCerrar }) {
 
   return (
     <Modal titulo={producto.nombre} onCerrar={onCerrar}>
-      <p className="muted" style={{ marginTop: -8 }}>Stock actual: <b>{producto.stock ?? 0}</b></p>
+      <p className="muted" style={{ marginTop: -8 }}>Stock actual: <b>{producto.stock ?? 0} unidades</b>{producto.unidadesPorBulto > 1 && ` (${Math.floor((producto.stock ?? 0) / producto.unidadesPorBulto)} bultos)`}</p>
       <div className="botones" style={{ marginBottom: 12 }}>
         <button className={`boton chico ${modo === 'compra' ? 'primario' : ''}`} onClick={() => setModo('compra')}>Entró mercadería</button>
         <button className={`boton chico ${modo === 'ajuste' ? 'primario' : ''}`} onClick={() => setModo('ajuste')}>Corregir stock</button>
       </div>
       {modo === 'compra' ? (
         <div className="fila">
-          <Campo label="Cantidad que entró"><input inputMode="numeric" value={cantidad} onChange={(e) => setCantidad(e.target.value)} autoFocus /></Campo>
+          <Campo label="Unidades que entraron"><input inputMode="numeric" value={cantidad} onChange={(e) => setCantidad(e.target.value)} autoFocus /></Campo>
           <Campo label="Costo por unidad"><input inputMode="decimal" value={costo} onChange={(e) => setCosto(e.target.value)} /></Campo>
         </div>
       ) : (
@@ -155,18 +169,24 @@ function FormImportar({ onCerrar }) {
 
   async function importar() {
     if (!filas.length) return
-    await db.productos.bulkAdd(
-      filas.map(([nombre, precio, costo, stock, categoria]) => ({
-        nombre,
-        precio: numero((precio || '').replace(/\./g, '')),
-        costo: numero((costo || '').replace(/\./g, '')),
-        stock: numero(stock),
-        categoria: categoria || '',
-        codigo: '',
-        stockMinimo: 0,
-        activo: true,
-      })),
-    )
+    const plata = (v) => numero((v || '').replace(/\$|\s/g, '').replace(/\./g, ''))
+    for (const [nombre, precio, costo, stock, categoria, porBulto, precioBulto] of filas) {
+      const upb = numero(porBulto)
+      await crearProducto(
+        {
+          nombre,
+          precio: plata(precio),
+          costo: plata(costo),
+          categoria: categoria || '',
+          codigo: '',
+          stockMinimo: 0,
+          unidadesPorBulto: upb > 1 ? upb : 0,
+          precioBulto: upb > 1 ? plata(precioBulto) : 0,
+          activo: true,
+        },
+        numero(stock),
+      )
+    }
     toast(`${filas.length} productos cargados`)
     onCerrar()
   }
@@ -174,7 +194,7 @@ function FormImportar({ onCerrar }) {
   return (
     <Modal titulo="Cargar muchos productos" onCerrar={onCerrar}>
       <p className="muted" style={{ marginTop: -8 }}>
-        Pegá una lista desde Excel con las columnas en este orden: <b>nombre, precio, costo, stock, categoría</b>. Una fila por producto.
+        Pegá una lista desde Excel con las columnas en este orden: <b>nombre, precio, costo, stock, categoría</b> y, si vende por bulto, <b>unidades por bulto, precio del bulto</b>. Una fila por producto.
       </p>
       <textarea rows={8} value={texto} onChange={(e) => setTexto(e.target.value)} placeholder={'Alfajor Jorgito x6\t2500\t1800\t40\tGolosinas'} />
       <p className="muted">{filas.length} productos detectados</p>
@@ -232,7 +252,9 @@ export default function Productos() {
                 <div className="principal-item clickeable" onClick={() => setEditando(p)}>
                   <div className="titulo">{p.nombre}</div>
                   <div className="sub">
-                    {$(p.precio)} {p.categoria && `· ${p.categoria}`}
+                    {$(p.precio)}
+                    {p.unidadesPorBulto > 1 && ` · bulto x${p.unidadesPorBulto} ${$(p.precioBulto || p.precio * p.unidadesPorBulto)}`}
+                    {p.categoria && ` · ${p.categoria}`}
                   </div>
                 </div>
                 <button className={`chip ${esBajo(p) ? 'rojo' : 'verde'}`} style={{ border: 0, cursor: 'pointer', padding: '6px 10px' }} onClick={() => setStockDe(p)}>

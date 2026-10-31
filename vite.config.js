@@ -8,10 +8,10 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['icono.svg', 'icono-180.png'],
+      includeAssets: ['icono-180.png'],
       manifest: {
-        name: 'Gestión del negocio',
-        short_name: 'Mi Negocio',
+        name: 'Mayorista JT',
+        short_name: 'Mayorista JT',
         description: 'Ventas, stock, presupuestos y clientes en un solo lugar',
         lang: 'es-AR',
         start_url: './',

@@ -1,8 +1,9 @@
 import { useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { calcularSaldos, db } from '../lib/db'
+import { calcularSaldos, db, gananciaItem } from '../lib/db'
 import { $, inicioDia, inicioMes, inicioSemana } from '../lib/format'
+import logo from '../assets/logo-mayorista-jt.png'
 
 const sumar = (ventas, desde, hasta) =>
   ventas.filter((v) => {
@@ -11,7 +12,7 @@ const sumar = (ventas, desde, hasta) =>
   })
 
 const total = (vs) => vs.reduce((s, v) => s + v.total, 0)
-const ganancia = (vs) => vs.reduce((s, v) => s + v.items.reduce((g, i) => g + i.cantidad * (i.precio - (i.costo || 0)), 0), 0)
+const ganancia = (vs) => vs.reduce((s, v) => s + v.items.reduce((g, i) => g + gananciaItem(i), 0), 0)
 
 function Comparacion({ actual, anterior, texto }) {
   if (!anterior) return <div className="comparacion muted">{texto}: sin datos</div>
@@ -88,6 +89,7 @@ export default function Inicio() {
 
   return (
     <>
+      <img src={logo} alt="Mayorista JT" className="logo-inicio" />
       <div className="botones" style={{ marginBottom: 14 }}>
         <Link to="/vender" className="boton primario">🛒 Nueva venta</Link>
         <Link to="/presupuestos/nuevo" className="boton">📄 Presupuesto</Link>

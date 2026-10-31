@@ -1,6 +1,7 @@
 import { jsPDF } from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import { $, fecha, linkWhatsApp } from './format'
+import { nombreLinea } from './db'
 
 async function dimensionesImagen(dataUrl) {
   return new Promise((ok) => {
@@ -37,12 +38,9 @@ export async function generarPdfPresupuesto(presupuesto, config) {
   doc.text(`Fecha: ${fecha(presupuesto.fecha)}`, ancho - margen, y + 17, { align: 'right' })
 
   y += 30
-  doc.setFont('helvetica', 'bold')
-  doc.setFontSize(12)
-  doc.text(config.negocioNombre || 'Mi negocio', margen, y)
-  doc.setFont('helvetica', 'normal')
   doc.setFontSize(10)
-  const datosNegocio = [config.negocioTelefono, config.negocioDireccion].filter(Boolean)
+  // si hay logo, el nombre ya está en el logo
+  const datosNegocio = [config.logo ? '' : config.negocioNombre, config.negocioTelefono, config.negocioDireccion].filter(Boolean)
   datosNegocio.forEach((linea, i) => doc.text(linea, margen, y + 5 + i * 5))
 
   if (presupuesto.clienteNombre) {
@@ -57,7 +55,7 @@ export async function generarPdfPresupuesto(presupuesto, config) {
   autoTable(doc, {
     startY: y,
     head: [['Producto', 'Cant.', 'Precio unit.', 'Subtotal']],
-    body: presupuesto.items.map((i) => [i.nombre, String(i.cantidad), $(i.precio), $(i.cantidad * i.precio)]),
+    body: presupuesto.items.map((i) => [nombreLinea(i), String(i.cantidad), $(i.precio), $(i.cantidad * i.precio)]),
     foot: [['', '', 'TOTAL', $(presupuesto.total)]],
     theme: 'striped',
     headStyles: { fillColor: [31, 41, 55] },

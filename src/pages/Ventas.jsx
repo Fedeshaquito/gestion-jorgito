@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { anularVenta, db } from '../lib/db'
+import { anularVenta, db, nombreLinea, unidadesDe } from '../lib/db'
 import { $, fecha, fechaHora, inicioDia } from '../lib/format'
 import { Modal, Vacio, useToast } from '../components/ui'
 import { MEDIOS } from './NuevaVenta'
@@ -49,7 +49,7 @@ export default function Ventas() {
                     <div className="titulo">{v.clienteNombre || 'Venta al paso'}</div>
                     <div className="sub">
                       {new Date(v.fecha).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })} ·{' '}
-                      {v.items.reduce((s, i) => s + i.cantidad, 0)} unid.{' '}
+                      {v.items.reduce((s, i) => s + unidadesDe(i), 0)} unid.{' '}
                       {debe > 0 && <span className="chip rojo">Debe {$(debe)}</span>}
                     </div>
                   </div>
@@ -68,7 +68,7 @@ export default function Ventas() {
             {detalle.items.map((i, n) => (
               <li key={n}>
                 <div className="principal-item">
-                  <div className="titulo">{i.nombre}</div>
+                  <div className="titulo">{nombreLinea(i)}</div>
                   <div className="sub">{i.cantidad} × {$(i.precio)}</div>
                 </div>
                 <div className="monto">{$(i.cantidad * i.precio)}</div>
