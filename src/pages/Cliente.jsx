@@ -12,8 +12,10 @@ export default function Cliente() {
   const navegar = useNavigate()
   const toast = useToast()
   const cliente = useLiveQuery(() => db.clientes.get(id), [id])
-  const ventas = useLiveQuery(() => db.ventas.where('clienteId').equals(id).toArray(), [id]) || []
-  const pagos = useLiveQuery(() => db.pagos.where('clienteId').equals(id).toArray(), [id]) || []
+  const ventasQ = useLiveQuery(() => db.ventas.where('clienteId').equals(id).toArray(), [id])
+  const pagosQ = useLiveQuery(() => db.pagos.where('clienteId').equals(id).toArray(), [id])
+  const ventas = useMemo(() => ventasQ || [], [ventasQ])
+  const pagos = useMemo(() => pagosQ || [], [pagosQ])
   const [editando, setEditando] = useState(false)
   const [cobrando, setCobrando] = useState(false)
   const [monto, setMonto] = useState('')

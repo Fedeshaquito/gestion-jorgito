@@ -33,14 +33,14 @@ export function FormCliente({ cliente, onCerrar }) {
 
 export default function Clientes() {
   const clientes = useLiveQuery(() => db.clientes.orderBy('nombre').toArray(), [])
-  const ventas = useLiveQuery(() => db.ventas.toArray(), []) || []
-  const pagos = useLiveQuery(() => db.pagos.toArray(), []) || []
+  const ventas = useLiveQuery(() => db.ventas.toArray(), [])
+  const pagos = useLiveQuery(() => db.pagos.toArray(), [])
   const [busqueda, setBusqueda] = useState('')
   const [nuevo, setNuevo] = useState(false)
   const [soloDeudores, setSoloDeudores] = useState(false)
   const navegar = useNavigate()
 
-  const saldos = useMemo(() => calcularSaldos(ventas, pagos), [ventas, pagos])
+  const saldos = useMemo(() => calcularSaldos(ventas || [], pagos || []), [ventas, pagos])
   const totalDeuda = Object.values(saldos).reduce((s, v) => s + Math.max(v, 0), 0)
   const filtrados = (clientes || []).filter(
     (c) => normalizar(c.nombre).includes(normalizar(busqueda)) && (!soloDeudores || (saldos[c.id] || 0) > 0),
