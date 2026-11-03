@@ -7,7 +7,7 @@ import { achicarImagen } from '../lib/imagen'
 
 const VACIO = { nombre: '', codigo: '', categoria: '', costo: '', precio: '', stock: '', stockMinimo: '', unidadesPorBulto: '', precioBulto: '', foto: '' }
 
-function FormProducto({ producto, categorias, onCerrar }) {
+function FormProducto({ producto, categorias, onCerrar, onReponer }) {
   const [f, setF] = useState(producto ? { ...VACIO, ...producto } : VACIO)
   const toast = useToast()
   const set = (k) => (e) => setF({ ...f, [k]: e.target.value })
@@ -83,6 +83,12 @@ function FormProducto({ producto, categorias, onCerrar }) {
           />
         </Campo>
       </div>
+      {producto && (
+        <div className="tarjeta" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+          <span>Stock actual: <b>{producto.stock ?? 0} unidades</b></span>
+          <button className="boton primario chico" onClick={onReponer}>📦 Reponer stock</button>
+        </div>
+      )}
       <div className="fila">
         {!producto && <Campo label="Stock actual (unidades)"><input inputMode="numeric" value={f.stock} onChange={set('stock')} /></Campo>}
         <Campo label="Avisar cuando queden menos de"><input inputMode="numeric" value={f.stockMinimo} onChange={set('stockMinimo')} /></Campo>
@@ -330,7 +336,7 @@ export default function Productos() {
                   </div>
                 </div>
                 <button className={`chip ${esBajo(p) ? 'rojo' : 'verde'}`} style={{ border: 0, cursor: 'pointer', padding: '6px 10px' }} onClick={() => setStockDe(p)}>
-                  Stock {p.stock ?? 0}
+                  Stock {p.stock ?? 0} ＋
                 </button>
               </li>
             ))}
@@ -338,7 +344,17 @@ export default function Productos() {
         </div>
       )}
 
-      {editando && <FormProducto producto={editando === 'nuevo' ? null : editando} categorias={categorias} onCerrar={() => setEditando(null)} />}
+      {editando && (
+        <FormProducto
+          producto={editando === 'nuevo' ? null : editando}
+          categorias={categorias}
+          onCerrar={() => setEditando(null)}
+          onReponer={() => {
+            setStockDe(editando)
+            setEditando(null)
+          }}
+        />
+      )}
       {stockDe && <FormStock producto={stockDe} onCerrar={() => setStockDe(null)} />}
       {aumento && <FormAumento categorias={categorias} onCerrar={() => setAumento(false)} />}
       {importar && <FormImportar onCerrar={() => setImportar(false)} />}
