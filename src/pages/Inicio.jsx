@@ -44,6 +44,7 @@ export default function Inicio() {
     const mismoDiaMesPasado = new Date(ahora.getFullYear(), ahora.getMonth() - 1, ahora.getDate(), ahora.getHours(), ahora.getMinutes())
 
     const ventasMes = sumar(vs, mes, manana)
+    const ventasSemana = sumar(vs, semana, manana)
 
     // últimas 8 semanas
     const semanas = []
@@ -61,20 +62,24 @@ export default function Inicio() {
     }
     const top = (obj) => Object.entries(obj).sort((a, b) => b[1] - a[1]).slice(0, 5)
 
-    const comprasMes = movimientos
-      .filter((m) => new Date(m.fecha) >= mes)
-      .reduce((s, m) => s + m.cantidad * (m.costoUnit || 0), 0)
+    const comprasDesde = (desde) =>
+      movimientos
+        .filter((m) => new Date(m.fecha) >= desde)
+        .reduce((s, m) => s + m.cantidad * (m.costoUnit || 0), 0)
 
     return {
       hoy: total(sumar(vs, hoy, manana)),
       ayer: total(sumar(vs, ayer, hoy)),
-      semana: total(sumar(vs, semana, manana)),
+      semana: total(ventasSemana),
       semanaPasada: total(sumar(vs, semanaPasada, mismoMomentoSemanaPasada)),
       mes: total(ventasMes),
       mesPasado: total(sumar(vs, mesPasado, mismoDiaMesPasado)),
       gananciaMes: ganancia(ventasMes),
       cantidadMes: ventasMes.length,
-      comprasMes,
+      gananciaSemana: ganancia(ventasSemana),
+      cantidadSemana: ventasSemana.length,
+      comprasMes: comprasDesde(mes),
+      comprasSemana: comprasDesde(semana),
       semanas,
       topProductos: top(porProducto),
       topClientes: top(porCliente),
@@ -108,6 +113,11 @@ export default function Inicio() {
           <Comparacion actual={d.hoy} anterior={d.ayer} texto="ayer" />
         </div>
         <div className="dato">
+          <div className="etiqueta">Te deben</div>
+          <div className={`valor ${deuda > 0 ? 'baja' : ''}`}>{$(deuda)}</div>
+          <div className="comparacion"><Link to="/clientes">Ver clientes</Link></div>
+        </div>
+        <div className="dato">
           <div className="etiqueta">Esta semana</div>
           <div className="valor">{$(d.semana)}</div>
           <Comparacion actual={d.semana} anterior={d.semanaPasada} texto="semana pasada" />
@@ -118,14 +128,19 @@ export default function Inicio() {
           <Comparacion actual={d.mes} anterior={d.mesPasado} texto="mes pasado" />
         </div>
         <div className="dato">
+          <div className="etiqueta">Ganancia de la semana</div>
+          <div className="valor sube">{$(d.gananciaSemana)}</div>
+          <div className="comparacion muted">{d.cantidadSemana} ventas</div>
+        </div>
+        <div className="dato">
           <div className="etiqueta">Ganancia del mes</div>
           <div className="valor sube">{$(d.gananciaMes)}</div>
           <div className="comparacion muted">{d.cantidadMes} ventas</div>
         </div>
         <div className="dato">
-          <div className="etiqueta">Te deben</div>
-          <div className={`valor ${deuda > 0 ? 'baja' : ''}`}>{$(deuda)}</div>
-          <div className="comparacion"><Link to="/clientes">Ver clientes</Link></div>
+          <div className="etiqueta">Compraste esta semana</div>
+          <div className="valor">{$(d.comprasSemana)}</div>
+          <div className="comparacion muted">mercadería ingresada</div>
         </div>
         <div className="dato">
           <div className="etiqueta">Compraste este mes</div>
